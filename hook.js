@@ -32,7 +32,6 @@ function Hook(options) {
   this._uid = 1;
   this._eventTypes = {};
   this._server = null;
-  
 }
 util.inherits(Hook, EventEmitter);
 Hook.prototype.spawn = require('./spawn').spawn;
@@ -43,7 +42,7 @@ Hook.prototype.listen = function(options, cb) {
   if (cb==null && options && options instanceof Function )
     cb = options;
   cb = cb || function () {};
-	
+  
   var self = this;
   
   var server = self._server = nssocket.createServer(function (socket) {
@@ -64,21 +63,21 @@ Hook.prototype.listen = function(options, cb) {
     
     // properly shutdown connection
     function destroy() {
-		// forget this client
-		for (var i=0; i<self._clients.length; i++) {
-			if (self._clients[i].id==cliId) {
-				self._clients.splice(i,1);
-				// shutdown proxy and nssocket
-				client.proxy.removeAllListeners();
-				client.socket.destroy();
-				break;
-			}
-		}
-	}
+      // forget this client
+      for (var i=0; i<self._clients.length; i++) {
+        if (self._clients[i].id==cliId) {
+          self._clients.splice(i,1);
+          // shutdown proxy and nssocket
+          client.proxy.removeAllListeners();
+          client.socket.destroy();
+          break;
+        }
+      }
+    }
     
     // clean context on client lost
     socket.on('close', function () {
-		destroy();
+      destroy();
     });
     
     // almost dummy hello greeting
@@ -92,14 +91,14 @@ Hook.prototype.listen = function(options, cb) {
     socket.data('tinyhook::on', function (d) {
       if (client.proxy.listeners(d.type).length == 0) {
         client.proxy.on(d.type, function (data) {
-		  try {
-			client.socket.send('tinyhook::pushemit', data);
-	      } catch (e) {
-			// both we and nssocket has a function that should prevent
-			// this happening, but probably died/corrupted sockets can't 
-			// be detected by sockets error and close event and this can happens
-			destroy();
-		  }
+          try {
+            client.socket.send('tinyhook::pushemit', data);
+          } catch (e) {
+            // both we and nssocket has a function that should prevent
+            // this happening, but probably died/corrupted sockets can't 
+            // be detected by sockets error and close event and this can happens
+            destroy();
+          }
         })
       }
       
@@ -127,8 +126,7 @@ Hook.prototype.listen = function(options, cb) {
   server.on('error', function (e) {
     server = self._server = null;
     // here cb can be null, if we start listening and error happens after that
-    if (cb)
-		cb(e);
+    if (cb) cb(e);
   });
   
   server.on('close', function (e) {
@@ -214,7 +212,7 @@ Hook.prototype.start = function(options, cb) {
   if (cb==null && options && options instanceof Function )
     cb = options;
   cb = cb || function () {};
-  	
+    
   var self = this;
 
   this.listen(function(e) {
