@@ -11,6 +11,7 @@ function Hook(options) {
   this.name = this.name || options.name || options['hook-name'] || 'no-name';
   this.silent = this.silent || options.silent || true;
   this.local = this.local || options.local || false;
+  this.socketPath = this.socketPath || options.socketPath || false;
   this['hook-host'] = this['hook-host'] || options.host || options['hook-host'] || '127.0.0.1';
   this['hook-port'] = this['hook-port'] || options.port || options['hook-port'] || 1976;
   
@@ -144,7 +145,11 @@ Hook.prototype.listen = function(options, cb) {
     EventEmitter.prototype.emit.apply(self, ['hook::ready']);
   });
   
-  server.listen(self['hook-port'], self['hook-host']);
+  if(this.socketPath) {
+    server.listen(this.socketPath);
+  } else {
+    server.listen(self['hook-port'], self['hook-host']);
+  }
 };
 
 Hook.prototype.connect = function(options, cb) {
@@ -159,7 +164,12 @@ Hook.prototype.connect = function(options, cb) {
   cb();
   
   var client = this._client = new nssocket.NsSocket({reconnect: true});
-  client.connect(self['hook-port'], self['hook-host']);
+  
+  if(this.socketPath) {
+    client.connect(this.socketPath);
+  } else {
+    client.connect(self['hook-port'], self['hook-host']);
+  }
   
   // when connection started we sayng hello and push
   // all known event types we have
