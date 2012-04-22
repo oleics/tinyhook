@@ -41,10 +41,13 @@ Hook.prototype.spawn = require('./spawn').spawn;
 Hook.prototype.listen = function(options, cb) {
   // not sure which options can be passed, but lets
   // keep this for compatibility with original hook.io
-  if (cb==null && options && options instanceof Function )
+  if (cb==null && options && options instanceof Function ) {
     cb = options;
+    options = {};
+  }
   cb = cb || function () {};
-	
+  options = options || {};
+  
   var self = this;
   
   var server = self._server = nssocket.createServer(function (socket) {
@@ -65,21 +68,21 @@ Hook.prototype.listen = function(options, cb) {
     
     // properly shutdown connection
     function destroy() {
-		// forget this client
-		for (var i=0; i<self._clients.length; i++) {
-			if (self._clients[i].id==cliId) {
-				self._clients.splice(i,1);
-				// shutdown proxy and nssocket
-				client.proxy.removeAllListeners();
-				client.socket.destroy();
-				break;
-			}
-		}
-	}
+      // forget this client
+      for (var i=0; i<self._clients.length; i++) {
+        if (self._clients[i].id==cliId) {
+          self._clients.splice(i,1);
+          // shutdown proxy and nssocket
+          client.proxy.removeAllListeners();
+          client.socket.destroy();
+          break;
+        }
+      }
+    }
     
     // clean context on client lost
     socket.on('close', function () {
-		destroy();
+      destroy();
     });
     
     // almost dummy hello greeting
@@ -93,14 +96,14 @@ Hook.prototype.listen = function(options, cb) {
     socket.data('tinyhook::on', function (d) {
       if (client.proxy.listeners(d.type).length == 0) {
         client.proxy.on(d.type, function (data) {
-		  try {
-			client.socket.send('tinyhook::pushemit', data);
-	      } catch (e) {
-			// both we and nssocket has a function that should prevent
-			// this happening, but probably died/corrupted sockets can't 
-			// be detected by sockets error and close event and this can happens
-			destroy();
-		  }
+          try {
+            client.socket.send('tinyhook::pushemit', data);
+          } catch (e) {
+            // both we and nssocket has a function that should prevent
+            // this happening, but probably died/corrupted sockets can't 
+            // be detected by sockets error and close event and this can happens
+            destroy();
+          }
         })
       }
       
@@ -125,11 +128,9 @@ Hook.prototype.listen = function(options, cb) {
     });
   });
   
-  server.on('error', function (e) {
+  server.once('error', function (e) {
     server = self._server = null;
-    // here cb can be null, if we start listening and error happens after that
-    if (cb)
-		cb(e);
+    cb(e);
   });
   
   server.on('close', function (e) {
@@ -139,11 +140,10 @@ Hook.prototype.listen = function(options, cb) {
   });
   
   server.on('listening', function () {
+    server.removeListener('error', cb);
     self.listening = true;
     self.ready = true;
     cb(); 
-    // set callback to null, so we wan't ping it one more time in error handler
-    cb = null;
     EventEmitter.prototype.emit.apply(self, ['hook::ready']);
   });
   
@@ -158,26 +158,22 @@ Hook.prototype.connect = function(options, cb) {
   var self = this;
   // not sure which options can be passed, but lets
   // keep this for compatibility with original hook.io
-  if (cb==null && options && options instanceof Function )
+  if (cb==null && options && options instanceof Function) {
     cb = options;
-  cb = cb || function () {};
-  
-  var reconnect = options.reconnect != null ? options.reconnect : true,
-      client = this._client = new nssocket.NsSocket({reconnect: reconnect});
-  
-  if(self.socketPath) {
-    client.connect(self.socketPath);
-  } else {
-    client.connect(self['hook-port'], self['hook-host']);
+    options = {};
   }
+  cb = cb || function () {};
+  options = options || {};
   
-  client.on('error', cb);
+  var client = this._client = new nssocket.NsSocket({reconnect: false});
+  
+  client.once('error', cb);
   
   // when connection started we sayng hello and push
   // all known event types we have
   client.on('start', function () {
-    client.off('error', cb);
-    cb();
+    client.removeListener('error', cb);
+    client._reconnect = options.reconnect != null ? options.reconnect : false;
     
     client.send(['tinyhook', 'hello'], {protoVersion: 1, name: self.name});
     
@@ -191,12 +187,19 @@ Hook.prototype.connect = function(options, cb) {
       self.ready = true;
       self.emit('hook::ready');
     }
+    cb();
   });
   
   client.on('close', function() {
     self.ready = false;
     client = self._client = null;
   })
+  
+  if(self.socketPath) {
+    client.connect(self.socketPath);
+  } else {
+    client.connect(self['hook-port'], self['hook-host']);
+  }
   
   // tranlate pushed emit to local one
   client.data('tinyhook::pushemit',function (d) {
@@ -227,17 +230,26 @@ Hook.prototype.connect = function(options, cb) {
 Hook.prototype.start = function(options, cb) {
   // not sure which options can be passed, but lets
   // keep this for compatibility with original hook.io
-  if (cb==null && options && options instanceof Function )
+  if (cb==null && options && options instanceof Function ) {
     cb = options;
+    options = {};
+  }
   cb = cb || function () {};
-  	
+  options = options || {};
+  
+  // make reconnect the default
+  options.reconnect = options.reconnect != null ? options.reconnect : true;
+    
   var self = this;
   
-  this.connect(function(e) {
-    if(e && e.code === 'ECONNREFUSED') {
-      return self.listen(cb);
+  this.connect(options, function(e) {
+    if(e) {
+      if(e.code === 'ECONNREFUSED') {
+        return self.listen(options, cb);
+      }
+      return cb(e);
     }
-    cb(e);
+    cb();
   });
 };
 

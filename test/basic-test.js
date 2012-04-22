@@ -46,24 +46,27 @@ vows.describe('Basic ops: start, stop, listen, emit').addBatch({
 }).addBatch({
 	'Master & childs':{
 		topic: function () {
-			var topic = {
-				master: new Hook({name:'master'}),
-				child1: new Hook({name:'child1'}),
-				child2: new Hook({name:'child2'}),
-				child3: new Hook({name:'child3'})
-			}
-			topic.master.start();
-			topic.child1.start();
-			topic.child2.start();
-			topic.child3.start();
-			var ch = 3;
-			var cb = this.callback.bind(this, null,topic);
-			function readyCallback() {
-				ch--; if (ch==0) cb();
-			}
-			topic.child1.on('hook::ready', readyCallback);
-			topic.child2.on('hook::ready', readyCallback);
-			topic.child3.on('hook::ready', readyCallback);
+			var self = this
+        , topic = {
+            master: new Hook({name:'master'}),
+            child1: new Hook({name:'child1'}),
+            child2: new Hook({name:'child2'}),
+            child3: new Hook({name:'child3'})
+          }
+        ;
+			topic.master.start(function() {
+        topic.child1.start();
+        topic.child2.start();
+        topic.child3.start();
+        var ch = 3;
+        var cb = self.callback.bind(self, null, topic);
+        function readyCallback() {
+          ch--; if (ch==0) cb();
+        }
+        topic.child1.on('hook::ready', readyCallback);
+        topic.child2.on('hook::ready', readyCallback);
+        topic.child3.on('hook::ready', readyCallback);
+      });
 		}, 
 		'master listens':function (topic) {
 			assert.equal(topic.master.listening, true);
@@ -136,4 +139,4 @@ vows.describe('Basic ops: start, stop, listen, emit').addBatch({
 			}
 		}				
 	}
-}).export(module);
+ /* */}).export(module);

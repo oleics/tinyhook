@@ -5,15 +5,16 @@ var Hook = require('../hook').Hook;
 vows.describe('Emitting event should use FIFO approach').addBatch({
 	'2 clients':{
 		topic:function () {
+      var self = this
 			var master = new Hook({name: 'master',local:false, port:1976 });
 			var cb = this.callback.bind(this, null,master);
 			master.start();
-			var child1 = new Hook({name: 'child1', port:1976});
-			child1.start();
 			master.on('hook::ready', function () {
+        var child1 = new Hook({name: 'child1', port:1976});
+        child1.start();
 				master.spawn([{src:__dirname+'/testhook.js',name:'child2', port:1976}]);
+        master.on('children::ready', cb.bind(self,null,child1));
 			})
-			master.on('children::ready', cb.bind(this,null,child1));
 		},
 		'started':function () {
 		},
